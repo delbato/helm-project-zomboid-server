@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "project-zomboid-server.fullname" . }}
+  labels:
+    {{- include "project-zomboid-server.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "project-zomboid-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "project-zomboid-server.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "project-zomboid-server.serviceAccountName" . }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: SERVER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.secretName }}
+              key: serverName
+        - name: ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.secretName }}
+              key: adminUsername
+        - name: ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.secretName }}
+              key: adminPassword
+        - name: MAX_RAM
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.secretName }}
+              key: maxRam
+        ports:
+        - name: standard
+          containerPort: 16261
+          protocol: UDP
+        - name: direct
+          containerPort: 16262
+          protocol: UDP
+        volumeMounts:
+        {{- if .Values.dataPersistence.enabled }}
+        - name: data
+          mountPath: /home/steam/Zomboid
+        {{- end }}
+        {{- if .Values.serverPersistence.enabled }}
+        - name: server
+          mountPath: /home/steam/ZomboidDedicatedServer
+        {{- end }}
+        resources:
+        {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+      {{- if .Values.dataPersistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          {{- if .Values.dataPersistence.existingClaim }}
+          claimName: {{ .Values.dataPersistence.existingClaim }}
+          {{- else }}
+          claimName: {{ include "project-zomboid-server.fullname" . }}-data-claim
+          {{- end }}
+      {{- end }}
+      {{- if .Values.serverPersistence.enabled }}
+      - name: server
+        persistentVolumeClaim:
+          {{- if .Values.serverPersistence.existingClaim }}
+          claimName: {{ .Values.serverPersistence.existingClaim }}
+          {{- else }}
+          claimName: {{ include "project-zomboid-server.fullname" . }}-server-claim
+          {{- end }}
+      {{- end }}
+---
+{{- if .Values.sshConfig.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "project-zomboid-server.fullname" . }}-sftp
+  labels:
+    {{- include "project-zomboid-server.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "project-zomboid-server.fullname" . }}-sftp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ include "project-zomboid-server.fullname" . }}-sftp
+    spec:
+      containers:
+      - name:  sftp
+        image:  atmoz/sftp:latest
+        env:
+        - name: SSH_USERS
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.sshConfig.secretName }}
+              key: sshUsers
+        ports:
+        - containerPort: 22
+          name:  ssh
+          protocol: TCP
+        volumeMounts:
+        {{- if .Values.dataPersistence.enabled }}
+        - name: data
+          mountPath: /home/{{ .Values.sshConfig.username }}/data
+        {{- end }}
+        {{- if .Values.serverPersistence.enabled }}
+        - name: data
+          mountPath: /home/{{ .Values.sshConfig.username }}/server
+        {{- end }}
+      volumes:
+      {{- if .Values.dataPersistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          {{- if .Values.dataPersistence.existingClaim }}
+          claimName: {{ .Values.dataPersistence.existingClaim }}
+          {{- else }}
+          claimName: {{ include "project-zomboid-server.fullname" . }}-data-claim
+          {{- end }}
+      {{- end }}
+      {{- if .Values.serverPersistence.enabled }}
+      - name: server
+        persistentVolumeClaim:
+          {{- if .Values.serverPersistence.existingClaim }}
+          claimName: {{ .Values.serverPersistence.existingClaim }}
+          {{- else }}
+          claimName: {{ include "project-zomboid-server.fullname" . }}-server-claim
+          {{- end }}
+      {{- end }}
+      restartPolicy: Always
+{{- end }}

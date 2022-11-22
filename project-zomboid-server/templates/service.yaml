@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "project-zomboid-server.fullname" . }}
+  labels:
+    {{- include "project-zomboid-server.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 16261
+      protocol: UDP
+      name: standard
+      {{- if eq .Values.service.type "NodePort" }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+    - port: {{ .Values.service.directPort }}
+      targetPort: 16262
+      protocol: UDP
+      name: direct
+      {{- if eq .Values.service.type "NodePort" }}
+      nodePort: {{ .Values.service.nodeDirectPort }}
+      {{- end }}
+  selector:
+    {{- include "project-zomboid-server.selectorLabels" . | nindent 4 }}

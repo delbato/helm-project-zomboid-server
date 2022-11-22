@@ -1,0 +1,35 @@
+{{- if .Values.dataPersistence.enabled }}
+{{- if not .Values.dataPersistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "project-zomboid-server.fullname" . }}-data-claim
+  labels:
+    {{- include "project-zomboid-server.labels" . | nindent 4 }}
+spec:
+  storageClassName: {{ .Values.dataPersistence.storageClass }}
+  accessModes:
+  - {{ .Values.dataPersistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.dataPersistence.storage }}
+{{- end }}
+{{- end }}
+---
+{{- if .Values.serverPersistence.enabled }}
+{{- if not .Values.serverPersistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "project-zomboid-server.fullname" . }}-server-claim
+  labels:
+    {{- include "project-zomboid-server.labels" . | nindent 4 }}
+spec:
+  storageClassName: {{ .Values.serverPersistance.storageClass }}
+  accessModes:
+  - {{ .Values.serverPersistance.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.serverPersistance.storage }}
+{{- end }}
+{{- end }}
